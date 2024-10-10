@@ -1,14 +1,16 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { ModeToggle } from "./components/mode-toggle" 
+import { ModeToggle } from "./components/mode-toggle"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Mail, Menu, X } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, useInView } from "framer-motion"
-import { MetaMaskConnect } from '../components/ui/metamask-connect'
+import dynamic from 'next/dynamic'
+
+const MetaMaskConnect = dynamic(() => import('../components/ui/metamask-connect').then(mod => mod.MetaMaskConnect), { ssr: false })
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },
@@ -97,11 +99,11 @@ export default function Home() {
             <motion.div variants={fadeIn}>
               <Card>
                 <CardHeader>
-                  <CardTitle></CardTitle>
+                  <CardTitle>Project 1</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p>
-                    Description of Project
+                    Description of Project 1
                   </p>
                 </CardContent>
               </Card>
@@ -150,7 +152,7 @@ export default function Home() {
                       src="/placeholder.svg?height=192&width=384"
                       alt="Team Member 1"
                       fill
-                      objectFit="cover"
+                      style={{ objectFit: "cover" }}
                       className="rounded-t-lg"
                     />
                   </div>
@@ -167,7 +169,7 @@ export default function Home() {
                       src="/placeholder.svg?height=192&width=384"
                       alt="Team Member 2"
                       fill
-                      objectFit="cover"
+                      style={{ objectFit: "cover" }}
                       className="rounded-t-lg"
                     />
                   </div>
@@ -184,7 +186,7 @@ export default function Home() {
                       src="/placeholder.svg?height=192&width=384"
                       alt="Team Member 3"
                       fill
-                      objectFit="cover"
+                      style={{ objectFit: "cover" }}
                       className="rounded-t-lg"
                     /> 
                   </div>
@@ -201,7 +203,7 @@ export default function Home() {
                       src="/placeholder.svg?height=192&width=384"
                       alt="Team Member 4"
                       fill
-                      objectFit="cover"
+                      style={{ objectFit: "cover" }}
                       className="rounded-t-lg"
                     />
                   </div>
@@ -212,7 +214,6 @@ export default function Home() {
             </motion.div>
           </motion.div>
         </AnimatedSection>
-
 
         <AnimatedSection id="contact" className="space-y-8">
           <h2 className="text-3xl font-bold text-center">Contact Us</h2>

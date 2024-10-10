@@ -17,6 +17,7 @@ declare global {
       isMetaMask?: boolean;
       request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
       on?: (event: string, handler: (...args: unknown[]) => void) => void;
+      removeListener?: (event: string, handler: (...args: unknown[]) => void) => void;
     };
   }
 }
@@ -28,6 +29,26 @@ export function MetaMaskConnect() {
 
   useEffect(() => {
     checkConnection()
+
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length > 0) {
+        setAccount(accounts[0])
+        setIsConnected(true)
+      } else {
+        setIsConnected(false)
+        setAccount('')
+      }
+    }
+
+    if (typeof window.ethereum !== 'undefined' && window.ethereum.on) {
+      window.ethereum.on('accountsChanged', (accounts) => handleAccountsChanged(accounts as string[]))
+    }
+
+    return () => {
+      if (typeof window.ethereum !== 'undefined' && window.ethereum.removeListener) {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged as (...args: unknown[]) => void)
+      }
+    }
   }, [])
 
   const checkConnection = async () => {
@@ -63,25 +84,37 @@ export function MetaMaskConnect() {
   const disconnectWallet = () => {
     setIsConnected(false)
     setAccount('')
+    setIsOpen(false)
   }
 
   return (
     <>
-      <Button onClick={() => setIsOpen(true)} variant="outline" size="sm">
+      <Button 
+        onClick={() => isConnected ? setIsOpen(true) : connectWallet()} 
+        variant="outline" 
+        size="sm"
+        aria-label={isConnected ? "Manage wallet connection" : "Connect wallet"}
+      >
         <Wallet className="mr-2 h-4 w-4" />
         {isConnected ? 'Connected' : 'Connect Wallet'}
       </Button>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Connect to MetaMask</DialogTitle>
+            <DialogTitle>{isConnected ? 'Manage Connection' : 'Connect to MetaMask'}</DialogTitle>
             <DialogDescription>
-              {typeof window.ethereum !== 'undefined' 
-                ? "Click the button below to connect your MetaMask wallet."
-                : "MetaMask is not detected. Please install MetaMask and refresh the page."}
+              {isConnected 
+                ? `You are connected with account ${account.slice(0, 6)}...${account.slice(-4)}`
+                : typeof window.ethereum !== 'undefined' 
+                  ? "Click the button below to connect your MetaMask wallet."
+                  : "MetaMask is not detected. Please install MetaMask and refresh the page."}
             </DialogDescription>
           </DialogHeader>
-          {typeof window.ethereum !== 'undefined' ? (
+          {isConnected ? (
+            <Button onClick={disconnectWallet} variant="destructive">
+              Disconnect
+            </Button>
+          ) : typeof window.ethereum !== 'undefined' ? (
             <Button onClick={connectWallet}>
               Connect MetaMask
             </Button>
@@ -91,16 +124,6 @@ export function MetaMaskConnect() {
                 Install MetaMask
               </a>
             </Button>
-          )}
-          {isConnected && (
-            <>
-              <p className="text-sm text-muted-foreground">
-                Connected Account: {account.slice(0, 6)}...{account.slice(-4)}
-              </p>
-              <Button onClick={disconnectWallet} variant="outline" size="sm">
-                Disconnect
-              </Button>
-            </>
           )}
         </DialogContent>
       </Dialog>
