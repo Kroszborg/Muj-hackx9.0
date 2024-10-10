@@ -8,6 +8,7 @@ import { Mail, Menu, X } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, useInView } from "framer-motion"
+import { MetaMaskConnect } from '../components/ui/metamask-connect'
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },
@@ -66,9 +67,11 @@ export default function Home() {
             <Link href="#about" className="hover:underline">About</Link>
             <Link href="#team" className="hover:underline">Team</Link>
             <Link href="#contact" className="hover:underline">Contact Us</Link>
+            <MetaMaskConnect />
             <ModeToggle />
           </nav>
           <div className="md:hidden flex items-center">
+            <MetaMaskConnect />
             <ModeToggle />
             <button onClick={toggleMenu} className="ml-4 p-2">
               {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
