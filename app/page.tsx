@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { ModeToggle } from "./components/mode-toggle"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Mail, Menu, X } from "lucide-react"
@@ -10,7 +9,8 @@ import Image from "next/image"
 import { motion, useInView } from "framer-motion"
 import dynamic from 'next/dynamic'
 
-const MetaMaskConnect = dynamic(() => import('../components/ui/metamask-connect').then(mod => mod.MetaMaskConnect), { ssr: false })
+const ModeToggle = dynamic(() => import("./components/mode-toggle").then(mod => mod.ModeToggle), { ssr: false })
+const MultiWalletConnect = dynamic(() => import("@/components/ui/multi-wallet-connect").then(mod => mod.MultiWalletConnect), { ssr: false })
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },
@@ -69,11 +69,11 @@ export default function Home() {
             <Link href="#about" className="hover:underline">About</Link>
             <Link href="#team" className="hover:underline">Team</Link>
             <Link href="#contact" className="hover:underline">Contact Us</Link>
-            <MetaMaskConnect />
+            <MultiWalletConnect />
             <ModeToggle />
           </nav>
           <div className="md:hidden flex items-center">
-            <MetaMaskConnect />
+            <MultiWalletConnect />
             <ModeToggle />
             <button onClick={toggleMenu} className="ml-4 p-2">
               {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
