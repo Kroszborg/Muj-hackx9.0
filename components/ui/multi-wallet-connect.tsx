@@ -89,6 +89,7 @@ export function MultiWalletConnect() {
         }
       } catch (error) {
         console.error("Failed to check MetaMask connection", error)
+        alert("Failed to check MetaMask connection")
       }
     }
 
@@ -99,7 +100,7 @@ export function MultiWalletConnect() {
         setConnectedWallet('Phantom')
         return
       } catch {
-        // User is not connected to Phantom
+      alert("Failed to check Phantom connection")    
       }
     }
 
@@ -115,6 +116,7 @@ export function MultiWalletConnect() {
         }
       } catch (error) {
         console.error("Failed to check Keplr connection", error)
+        alert("Failed to check Keplr connection")
       }
     }
   }
