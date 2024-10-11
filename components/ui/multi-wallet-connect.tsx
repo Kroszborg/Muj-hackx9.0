@@ -10,6 +10,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { Wallet } from "lucide-react"
+import Cookies from 'js-cookie'  // Make sure to install this package: npm install js-cookie
 
 declare global {
   interface Window {
@@ -25,6 +26,8 @@ declare global {
       disconnect: () => Promise<void>;
       on: (event: string, handler: (...args: unknown[]) => void) => void;
       removeListener: (event: string, handler: (...args: unknown[]) => void) => void;
+      isConnected: () => Promise<boolean>;
+      publicKey: { toString: () => string } | null;
     };
     keplr?: {
       enable: (chainId: string) => Promise<void>;
@@ -43,11 +46,10 @@ export function MultiWalletConnect() {
   const [account, setAccount] = useState('')
 
   useEffect(() => {
-    checkConnections()
-
     const handleAccountsChanged = (accounts: string[]) => {
       if (accounts.length > 0) {
         setAccount(accounts[0])
+        refreshCookies(connectedWallet!, accounts[0])
       } else {
         disconnectWallet()
       }
@@ -62,6 +64,7 @@ export function MultiWalletConnect() {
         const pk = publicKey as { toString: () => string } | null;
         if (pk) {
           setAccount(pk.toString())
+          refreshCookies(connectedWallet!, pk.toString())
         } else {
           disconnectWallet()
         }
@@ -76,53 +79,80 @@ export function MultiWalletConnect() {
         window.solana.removeListener('accountChanged', () => {})
       }
     }
-  }, [])
+  }, [connectedWallet])
 
-  const checkConnections = async () => {
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' }) as string[]
-        if (accounts.length > 0) {
-          setAccount(accounts[0])
-          setConnectedWallet('MetaMask')
-          return
-        }
-      } catch (error) {
-        console.error("Failed to check MetaMask connection", error)
-        alert("Failed to check MetaMask connection")
-      }
-    }
+  const refreshCookies = (walletType: WalletType, accountAddress: string) => {
+    // Set cookies with wallet information
+    Cookies.set('walletType', walletType, { expires: 7 }) // expires in 7 days
+    Cookies.set('accountAddress', accountAddress, { expires: 7 })
+    
+    // You might want to trigger a page reload or update app state here
+    // window.location.reload()
+    console.log('Cookies refreshed with new wallet information')
+  }
 
-    if (typeof window.solana !== 'undefined' && window.solana.isPhantom) {
-      try {
-        const resp = await window.solana.connect()
-        setAccount(resp.publicKey.toString())
-        setConnectedWallet('Phantom')
-        return
-      } catch {
-      alert("Failed to check Phantom connection")    
+  const checkExistingConnection = async (walletType: WalletType): Promise<boolean> => {
+    try {
+      switch (walletType) {
+        case 'MetaMask':
+          if (typeof window.ethereum !== 'undefined') {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' }) as string[]
+            if (accounts.length > 0) {
+              setAccount(accounts[0])
+              setConnectedWallet('MetaMask')
+              refreshCookies('MetaMask', accounts[0])
+              return true
+            }
+          }
+          break
+        case 'Phantom':
+          if (typeof window.solana !== 'undefined' && window.solana.isPhantom) {
+            const isConnected = await window.solana.isConnected()
+            if (isConnected) {
+              const publicKey = window.solana.publicKey
+              if (publicKey) {
+                setAccount(publicKey.toString())
+                setConnectedWallet('Phantom')
+                refreshCookies('Phantom', publicKey.toString())
+                return true
+              }
+            }
+          }
+          break
+        case 'Keplr':
+          if (typeof window.keplr !== 'undefined') {
+            try {
+              const offlineSigner = window.keplr.getOfflineSigner('cosmoshub-4')
+              const accounts = await offlineSigner.getAccounts()
+              if (accounts.length > 0) {
+                setAccount(accounts[0].address)
+                setConnectedWallet('Keplr')
+                refreshCookies('Keplr', accounts[0].address)
+                return true
+              }
+            } catch {
+              // Silent fail if not already connected
+            }
+          }
+          break
       }
-    }
-
-    if (typeof window.keplr !== 'undefined') {
-      try {
-        await window.keplr.enable('cosmoshub-4')
-        const offlineSigner = window.keplr.getOfflineSigner('cosmoshub-4')
-        const accounts = await offlineSigner.getAccounts()
-        if (accounts.length > 0) {
-          setAccount(accounts[0].address)
-          setConnectedWallet('Keplr')
-          return
-        }
-      } catch (error) {
-        console.error("Failed to check Keplr connection", error)
-        alert("Failed to check Keplr connection")
-      }
+      return false
+    } catch (error) {
+      console.error(`Failed to check ${walletType} connection:`, error)
+      return false
     }
   }
 
   const connectWallet = async (walletType: WalletType) => {
     try {
+      // Check for existing connection only when user initiates
+      const isConnected = await checkExistingConnection(walletType)
+      if (isConnected) {
+        setIsOpen(false)
+        return
+      }
+
+      // If not connected, proceed with connection
       switch (walletType) {
         case 'MetaMask':
           if (typeof window.ethereum !== 'undefined') {
@@ -130,6 +160,7 @@ export function MultiWalletConnect() {
             const accounts = await window.ethereum.request({ method: 'eth_accounts' }) as string[]
             setAccount(accounts[0])
             setConnectedWallet('MetaMask')
+            refreshCookies('MetaMask', accounts[0])
           } else {
             throw new Error('MetaMask not detected')
           }
@@ -139,6 +170,7 @@ export function MultiWalletConnect() {
             const resp = await window.solana.connect()
             setAccount(resp.publicKey.toString())
             setConnectedWallet('Phantom')
+            refreshCookies('Phantom', resp.publicKey.toString())
           } else {
             throw new Error('Phantom not detected')
           }
@@ -150,6 +182,7 @@ export function MultiWalletConnect() {
             const accounts = await offlineSigner.getAccounts()
             setAccount(accounts[0].address)
             setConnectedWallet('Keplr')
+            refreshCookies('Keplr', accounts[0].address)
           } else {
             throw new Error('Keplr not detected')
           }
@@ -157,7 +190,8 @@ export function MultiWalletConnect() {
       }
       setIsOpen(false)
     } catch (error) {
-      console.error(`Failed to connect to ${walletType}`, error)
+      console.error(`Failed to connect to ${walletType}:`, error)
+      alert(`Failed to connect to ${walletType}. Please make sure the wallet is installed and try again.`)
     }
   }
 
@@ -165,12 +199,15 @@ export function MultiWalletConnect() {
     setConnectedWallet(null)
     setAccount('')
     setIsOpen(false)
+    // Clear cookies on disconnect
+    Cookies.remove('walletType')
+    Cookies.remove('accountAddress')
   }
 
   return (
     <>
       <Button 
-        onClick={() => connectedWallet ? setIsOpen(true) : setIsOpen(true)} 
+        onClick={() => setIsOpen(true)} 
         variant="outline" 
         size="sm"
         aria-label={connectedWallet ? "Manage wallet connection" : "Connect wallet"}
