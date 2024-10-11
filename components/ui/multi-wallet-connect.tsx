@@ -10,6 +10,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { Wallet } from "lucide-react"
+import Cookies from 'js-cookie'  // Make sure to install this package: npm install js-cookie
 
 declare global {
   interface Window {
@@ -48,6 +49,7 @@ export function MultiWalletConnect() {
     const handleAccountsChanged = (accounts: string[]) => {
       if (accounts.length > 0) {
         setAccount(accounts[0])
+        refreshCookies(connectedWallet!, accounts[0])
       } else {
         disconnectWallet()
       }
@@ -62,6 +64,7 @@ export function MultiWalletConnect() {
         const pk = publicKey as { toString: () => string } | null;
         if (pk) {
           setAccount(pk.toString())
+          refreshCookies(connectedWallet!, pk.toString())
         } else {
           disconnectWallet()
         }
@@ -76,7 +79,17 @@ export function MultiWalletConnect() {
         window.solana.removeListener('accountChanged', () => {})
       }
     }
-  }, [])
+  }, [connectedWallet])
+
+  const refreshCookies = (walletType: WalletType, accountAddress: string) => {
+    // Set cookies with wallet information
+    Cookies.set('walletType', walletType, { expires: 7 }) // expires in 7 days
+    Cookies.set('accountAddress', accountAddress, { expires: 7 })
+    
+    // You might want to trigger a page reload or update app state here
+    // window.location.reload()
+    console.log('Cookies refreshed with new wallet information')
+  }
 
   const checkExistingConnection = async (walletType: WalletType): Promise<boolean> => {
     try {
@@ -87,6 +100,7 @@ export function MultiWalletConnect() {
             if (accounts.length > 0) {
               setAccount(accounts[0])
               setConnectedWallet('MetaMask')
+              refreshCookies('MetaMask', accounts[0])
               return true
             }
           }
@@ -99,6 +113,7 @@ export function MultiWalletConnect() {
               if (publicKey) {
                 setAccount(publicKey.toString())
                 setConnectedWallet('Phantom')
+                refreshCookies('Phantom', publicKey.toString())
                 return true
               }
             }
@@ -112,6 +127,7 @@ export function MultiWalletConnect() {
               if (accounts.length > 0) {
                 setAccount(accounts[0].address)
                 setConnectedWallet('Keplr')
+                refreshCookies('Keplr', accounts[0].address)
                 return true
               }
             } catch {
@@ -144,6 +160,7 @@ export function MultiWalletConnect() {
             const accounts = await window.ethereum.request({ method: 'eth_accounts' }) as string[]
             setAccount(accounts[0])
             setConnectedWallet('MetaMask')
+            refreshCookies('MetaMask', accounts[0])
           } else {
             throw new Error('MetaMask not detected')
           }
@@ -153,6 +170,7 @@ export function MultiWalletConnect() {
             const resp = await window.solana.connect()
             setAccount(resp.publicKey.toString())
             setConnectedWallet('Phantom')
+            refreshCookies('Phantom', resp.publicKey.toString())
           } else {
             throw new Error('Phantom not detected')
           }
@@ -164,6 +182,7 @@ export function MultiWalletConnect() {
             const accounts = await offlineSigner.getAccounts()
             setAccount(accounts[0].address)
             setConnectedWallet('Keplr')
+            refreshCookies('Keplr', accounts[0].address)
           } else {
             throw new Error('Keplr not detected')
           }
@@ -180,6 +199,9 @@ export function MultiWalletConnect() {
     setConnectedWallet(null)
     setAccount('')
     setIsOpen(false)
+    // Clear cookies on disconnect
+    Cookies.remove('walletType')
+    Cookies.remove('accountAddress')
   }
 
   return (
