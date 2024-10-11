@@ -25,6 +25,8 @@ declare global {
       disconnect: () => Promise<void>;
       on: (event: string, handler: (...args: unknown[]) => void) => void;
       removeListener: (event: string, handler: (...args: unknown[]) => void) => void;
+      isConnected: () => Promise<boolean>;
+      publicKey: { toString: () => string } | null;
     };
     keplr?: {
       enable: (chainId: string) => Promise<void>;
@@ -43,8 +45,6 @@ export function MultiWalletConnect() {
   const [account, setAccount] = useState('')
 
   useEffect(() => {
-    checkConnections()
-
     const handleAccountsChanged = (accounts: string[]) => {
       if (accounts.length > 0) {
         setAccount(accounts[0])
@@ -78,51 +78,65 @@ export function MultiWalletConnect() {
     }
   }, [])
 
-  const checkConnections = async () => {
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' }) as string[]
-        if (accounts.length > 0) {
-          setAccount(accounts[0])
-          setConnectedWallet('MetaMask')
-          return
-        }
-      } catch (error) {
-        console.error("Failed to check MetaMask connection", error)
-        alert("Failed to check MetaMask connection")
+  const checkExistingConnection = async (walletType: WalletType): Promise<boolean> => {
+    try {
+      switch (walletType) {
+        case 'MetaMask':
+          if (typeof window.ethereum !== 'undefined') {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' }) as string[]
+            if (accounts.length > 0) {
+              setAccount(accounts[0])
+              setConnectedWallet('MetaMask')
+              return true
+            }
+          }
+          break
+        case 'Phantom':
+          if (typeof window.solana !== 'undefined' && window.solana.isPhantom) {
+            const isConnected = await window.solana.isConnected()
+            if (isConnected) {
+              const publicKey = window.solana.publicKey
+              if (publicKey) {
+                setAccount(publicKey.toString())
+                setConnectedWallet('Phantom')
+                return true
+              }
+            }
+          }
+          break
+        case 'Keplr':
+          if (typeof window.keplr !== 'undefined') {
+            try {
+              const offlineSigner = window.keplr.getOfflineSigner('cosmoshub-4')
+              const accounts = await offlineSigner.getAccounts()
+              if (accounts.length > 0) {
+                setAccount(accounts[0].address)
+                setConnectedWallet('Keplr')
+                return true
+              }
+            } catch {
+              // Silent fail if not already connected
+            }
+          }
+          break
       }
-    }
-
-    if (typeof window.solana !== 'undefined' && window.solana.isPhantom) {
-      try {
-        const resp = await window.solana.connect()
-        setAccount(resp.publicKey.toString())
-        setConnectedWallet('Phantom')
-        return
-      } catch {
-      alert("Failed to check Phantom connection")    
-      }
-    }
-
-    if (typeof window.keplr !== 'undefined') {
-      try {
-        await window.keplr.enable('cosmoshub-4')
-        const offlineSigner = window.keplr.getOfflineSigner('cosmoshub-4')
-        const accounts = await offlineSigner.getAccounts()
-        if (accounts.length > 0) {
-          setAccount(accounts[0].address)
-          setConnectedWallet('Keplr')
-          return
-        }
-      } catch (error) {
-        console.error("Failed to check Keplr connection", error)
-        alert("Failed to check Keplr connection")
-      }
+      return false
+    } catch (error) {
+      console.error(`Failed to check ${walletType} connection:`, error)
+      return false
     }
   }
 
   const connectWallet = async (walletType: WalletType) => {
     try {
+      // Check for existing connection only when user initiates
+      const isConnected = await checkExistingConnection(walletType)
+      if (isConnected) {
+        setIsOpen(false)
+        return
+      }
+
+      // If not connected, proceed with connection
       switch (walletType) {
         case 'MetaMask':
           if (typeof window.ethereum !== 'undefined') {
@@ -157,7 +171,8 @@ export function MultiWalletConnect() {
       }
       setIsOpen(false)
     } catch (error) {
-      console.error(`Failed to connect to ${walletType}`, error)
+      console.error(`Failed to connect to ${walletType}:`, error)
+      alert(`Failed to connect to ${walletType}. Please make sure the wallet is installed and try again.`)
     }
   }
 
@@ -170,7 +185,7 @@ export function MultiWalletConnect() {
   return (
     <>
       <Button 
-        onClick={() => connectedWallet ? setIsOpen(true) : setIsOpen(true)} 
+        onClick={() => setIsOpen(true)} 
         variant="outline" 
         size="sm"
         aria-label={connectedWallet ? "Manage wallet connection" : "Connect wallet"}
